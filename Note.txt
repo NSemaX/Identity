@@ -1,0 +1,1 @@
+An apigateway development can be made here to call the apis (identity and product) a single endpoint.

@@ -156,6 +156,8 @@ namespace Identity.API.Application
                 throw new CustomException("Refresh token not found");
 
             _apiToken.Revoked = 1;
+            _apiToken.JWT_ExpireDate= DateTime.Now;
+            _apiToken.RT_ExpireDate = DateTime.Now;
             _apiToken.UpdatedDate = DateTime.Now;
 
             // revoke token and update
