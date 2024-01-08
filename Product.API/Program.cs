@@ -22,21 +22,21 @@ builder.Services.AddSwaggerGen(options =>
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey
     });
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-                    {
-                        {
-                          new OpenApiSecurityScheme
-                            {
-                                Reference = new OpenApiReference
-                                {
-                                    Type = ReferenceType.SecurityScheme,
-                                    Id = "Bearer"
-                                }
-                            },
-                            new string[] {}
-                        }
-                    });
 
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
 });
 
 
@@ -49,41 +49,37 @@ builder.Services.AddTransient<IProductOperations, ProductOperations>();
 
 
 builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateAudience = true,
+        ValidAudience = builder.Configuration.GetSection("JwtAuthentication").GetValue<string>("ValidAudience"),
+        ValidateIssuer = true,
+        ValidIssuer = builder.Configuration.GetSection("JwtAuthentication").GetValue<string>("ValidIssuer"),
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration.GetSection("JwtAuthentication").GetValue<string>("SecurityKey")))
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = ctx =>
         {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            return Task.CompletedTask;
+        },
+        OnAuthenticationFailed = ctx =>
+        {
+            Console.WriteLine("Exception:{0}", ctx.Exception.Message);
+            return Task.CompletedTask;
         }
-        )
-        .AddJwtBearer(options =>
-        {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateAudience = true,
-                ValidAudience = builder.Configuration.GetSection("JwtAuthentication").GetValue<string>("ValidAudience"),
-                ValidateIssuer = true,
-                ValidIssuer = builder.Configuration.GetSection("JwtAuthentication").GetValue<string>("ValidIssuer"),
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(builder.Configuration.GetSection("JwtAuthentication").GetValue<string>("SecurityKey")))
-
-
-            };
-
-            options.Events = new JwtBearerEvents
-            {
-                OnTokenValidated = ctx =>
-                {
-                    return Task.CompletedTask;
-                },
-                OnAuthenticationFailed = ctx =>
-                {
-                    Console.WriteLine("Exception:{0}", ctx.Exception.Message);
-                    return Task.CompletedTask;
-                }
-            };
-        });
-
+    };
+});
 
 
 var app = builder.Build();
