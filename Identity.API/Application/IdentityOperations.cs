@@ -36,6 +36,11 @@ namespace Identity.API.Application
             if (!await _tokenRepository.ValidateUser(request.Username, request.Password))
                 throw new CustomException("Username or password is invalid");
 
+            APIToken apiToken = await _tokenRepository.GetTokenByUsername(request.Username);
+
+            if (Helpers.isRevoked(apiToken)) //check if it is revoked or not
+                throw new CustomException("Your token is revoked");
+
             APIToken available_token = await _tokenRepository.GetTokenByUsername(request.Username);
 
             if (available_token != null)
@@ -56,7 +61,7 @@ namespace Identity.API.Application
             };
 
             DateTime jwt_expiredatetime = DateTime.Now.AddMinutes(_apisettings.Value.JWT_ExpireMins);
-            
+
 
             SecurityKey securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtAuthentication.Value.SecurityKey));
             var token = new JwtSecurityToken(
@@ -110,7 +115,7 @@ namespace Identity.API.Application
             };
 
             DateTime jwt_expiredatetime = DateTime.Now.AddMinutes(_apisettings.Value.JWT_ExpireMins);
-            
+
             //generate new token
             SecurityKey securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtAuthentication.Value.SecurityKey));
             var token = new JwtSecurityToken(
@@ -121,12 +126,21 @@ namespace Identity.API.Application
                 signingCredentials: new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256)
             );
 
-            if (_apiToken.RT_ExpireDate <= DateTime.Now) //if refresh token expired create a new one
+            if (_apiToken.RT_ExpireDate <= DateTime.Now)
             {
-                _apiToken.Refreshtoken = Guid.NewGuid().ToString();
-                _apiToken.RT_ExpireDate = DateTime.Now.AddDays(_apisettings.Value.RefreshTokenExpireDays);
+                APIToken apiToken = await _tokenRepository.GetByRefreshToken(refreshToken);
+
+                if (Helpers.isRevoked(apiToken)) //check if it is revoked or not
+                {
+                    throw new CustomException("Your token is revoked");
+                }
+                else  //if refresh token expired create a new one
+                {                
+                    _apiToken.Refreshtoken = Guid.NewGuid().ToString();
+                    _apiToken.RT_ExpireDate = DateTime.Now.AddDays(_apisettings.Value.RefreshTokenExpireDays);
+                }
             }
-            else
+            else //if refresh token not expired serve existing one
             {
                 _apiToken.Refreshtoken = _apiToken.Refreshtoken;
             }
@@ -156,7 +170,7 @@ namespace Identity.API.Application
                 throw new CustomException("Refresh token not found");
 
             _apiToken.Revoked = 1;
-            _apiToken.JWT_ExpireDate= DateTime.Now;
+            _apiToken.JWT_ExpireDate = DateTime.Now;
             _apiToken.RT_ExpireDate = DateTime.Now;
             _apiToken.UpdatedDate = DateTime.Now;
 
